@@ -4,7 +4,7 @@ const User = require("../models/User");
 const { body, validationResult } = require('express-validator');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const fetchuser=require("../middleware/fetchuser");
+const fetchuser = require("../middleware/fetchuser");
 
 const JWT_SECRET = 'Sagarisagoodb$y';
 
@@ -15,17 +15,19 @@ router.post('/createuser', [
     body('password', 'Password must be atleast 5 characters').isLength({ min: 5 }),
 ], async (req, res) => {
     // if there are errors return bad requet and the errors
+    let success = false
     const errors = validationResult(req);
     // console.log()
     if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
+
+        return res.status(400).json({ success, errors: errors.array() });
     }
     // check whether the user with this email exists already
     try {
         let user = await User.findOne({ email: req.body.email });
         // console.log(user);
         if (user) {
-            return res.status(400).json({ error: "Sorry a user with this email is already present" })
+            return res.status(400).json({ success, error: "Sorry a user with this email is already present" })
         }
         const salt = await bcrypt.genSalt(10);
         const secPass = await bcrypt.hash(req.body.password, salt);
@@ -42,7 +44,8 @@ router.post('/createuser', [
         const authtoken = jwt.sign(data, JWT_SECRET);
         // console.log(jwtData)
         // res.json(user)
-        res.json({ authtoken })
+        success = true
+        res.json({ success, authtoken })
 
     } catch (error) {
         console.error(error.message);
@@ -59,7 +62,7 @@ router.post('/login', [
     body('email', 'Enter a valid email').isEmail(),
     body('password', 'Password cannot be blank').exists(),
 ], async (req, res) => {
-
+    let success = false
     // if there are errors return bad requet and the errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -70,12 +73,14 @@ router.post('/login', [
     try {
         let user = await User.findOne({ email });
         if (!user) {
-            return res.status(400).json({ error: "Please login with correct credentials" })
+            success = false
+            return res.status(400).json({ success, error: "Please login with correct credentials" })
         }
 
         const passwordCompare = await bcrypt.compare(password, user.password);
         if (!passwordCompare) {
-            return res.status(400).json({ error: "Please login with correct credentials" });
+            success = false
+            return res.status(400).json({ success, error: "Please login with correct credentials" });
         }
 
 
@@ -85,8 +90,8 @@ router.post('/login', [
             }
         }
         const authtoken = jwt.sign(data, JWT_SECRET);
-
-        res.json({ authtoken })
+        success = true
+        res.json({ success, authtoken })
 
     } catch (error) {
         console.error(error.message);
@@ -99,9 +104,9 @@ router.post('/login', [
 // Route 3: Authenticating a user using  POST /api/auth/getuser Login required
 router.post('/getuser', fetchuser, async (req, res) => {
     try {
-     const userId=req.user.id;
+        const userId = req.user.id;
         // console.log(userId);
-        const user =await User.findById(userId).select("-password");
+        const user = await User.findById(userId).select("-password");
         res.send(user);
     } catch (error) {
         console.error(error.message);
